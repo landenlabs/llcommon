@@ -145,6 +145,10 @@ namespace DirUtil {
  bool setPermission(const char* inPath, unsigned permission, bool setAllParts = false);
  size_t fileLength(const lstring& path);
  bool fileExists(const char* path);bool makeWriteableFile(const char* filePath, struct stat* info);
+ // True if path1 and path2 resolve to the identical file (same volume + file id),
+ // e.g. two differently-cased paths to the same file on a case-insensitive filesystem.
+ // Returns false (not "same") if either path can't be opened/stat'd.
+ bool isSameFile(const char* path1, const char* path2);
 
     LinkStatus hardlink(bool dryRun, const char* masterPath, const char* linkPath);
     void showLink(LinkStatus status, const char* masterPath, const char* linkPath);

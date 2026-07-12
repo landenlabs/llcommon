@@ -535,6 +535,35 @@ bool DirUtil::fileExists(const char* path) {
 }
 
 //-------------------------------------------------------------------------------------------------
+bool DirUtil::isSameFile(const char* path1, const char* path2) {
+#ifdef HAVE_WIN
+    // st_ino from _stat()/_stat64() isn't reliably populated on Windows - use the
+    // volume serial number + file index pair from GetFileInformationByHandle instead,
+    // the standard way to get a stable per-file identity on NTFS.
+    bool same = false;
+    HANDLE h1 = CreateFile(path1, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                            NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    HANDLE h2 = CreateFile(path2, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                            NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+    if (h1 != INVALID_HANDLE_VALUE && h2 != INVALID_HANDLE_VALUE) {
+        BY_HANDLE_FILE_INFORMATION info1, info2;
+        if (GetFileInformationByHandle(h1, &info1) && GetFileInformationByHandle(h2, &info2)) {
+            same = info1.dwVolumeSerialNumber == info2.dwVolumeSerialNumber
+                && info1.nFileIndexHigh == info2.nFileIndexHigh
+                && info1.nFileIndexLow == info2.nFileIndexLow;
+        }
+    }
+    if (h1 != INVALID_HANDLE_VALUE) CloseHandle(h1);
+    if (h2 != INVALID_HANDLE_VALUE) CloseHandle(h2);
+    return same;
+#else
+    struct stat stat1, stat2;
+    return stat(path1, &stat1) == 0 && stat(path2, &stat2) == 0
+        && stat1.st_dev == stat2.st_dev && stat1.st_ino == stat2.st_ino;
+#endif
+}
+
+//-------------------------------------------------------------------------------------------------
 void DirUtil::showLink(LinkStatus status, const char* masterPath, const char* linkPath) {
     int error = errno;
     switch (status) {
