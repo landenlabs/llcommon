@@ -182,9 +182,13 @@ Directory_files::Directory_files(const lstring& dirName) {
     if (!DirUtil::fileExists(dirName)) {
         // Remove any wildcard are extra characters.
         DirUtil::getDir(my_baseDir, dirName);
-        realpath(my_baseDir.c_str(), my_fullname);
+        if (my_baseDir.empty())
+            my_baseDir = ".";  // bare pattern with no directory prefix (e.g. "*.txt") - scan cwd
+        if (realpath(my_baseDir.c_str(), my_fullname) == nullptr)
+            snprintf(my_fullname, sizeof(my_fullname), "%s", my_baseDir.c_str());  // fall back rather than leave my_fullname uninitialized
     } else {
-        realpath(dirName.c_str(), my_fullname);
+        if (realpath(dirName.c_str(), my_fullname) == nullptr)
+            snprintf(my_fullname, sizeof(my_fullname), "%s", dirName.c_str());
     }
     my_baseDir = my_fullname;
     my_pDir = opendir(my_baseDir);
