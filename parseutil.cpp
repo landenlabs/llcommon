@@ -149,7 +149,8 @@ bool ParseUtil::FileMatches(const lstring& inName, const PatternList& patternLis
 // Convert special characters from text to binary.
 lstring& ParseUtil::convertSpecialChar(lstring& inOut) {
     uint len = 0;
-    int x, n, scnt;
+    int x, scnt;
+    int n = 0;  // sscanf's %n only fires on a successful preceding conversion; keep this defined otherwise
     const char* inPtr = inOut;
     char* outPtr = (char*)inPtr;
     while (*inPtr) {
@@ -195,9 +196,9 @@ lstring& ParseUtil::convertSpecialChar(lstring& inOut) {
                 // Special case - Xcode does not correctly pass \n in debug argument scheme,
                 // So add special logic to treat \\n and \\r as \n and \r
                 if (inPtr[1] == 'r') {
-                    *outPtr = '\r'; inPtr++;
+                    *outPtr++ = '\r'; inPtr++;
                 } else if (inPtr[1] == 'n') {
-                    *outPtr = '\n'; inPtr++;
+                    *outPtr++ = '\n'; inPtr++;
                 } else {
                     *outPtr++ = *inPtr;
                 }
@@ -261,7 +262,7 @@ lstring& ParseUtil::getParts(
                 outPart += name;
                 break;
             case '#':   // Size
-                width = 1;
+                width = 0;
                 while (*fmt++ == '#')
                     width++;
                 fmt -= 2;
@@ -278,52 +279,4 @@ lstring& ParseUtil::getParts(
     }
     
     return outPart;
-}
-
-//-------------------------------------------------------------------------------------------------
-#ifdef HAVE_WIN
-#define byte win_byte_override      // Fix for c++ v17+
-#include <Windows.h>
-#undef byte                         // Fix for c++ v17+
-#include <stdio.h>
-#endif
-
-#define RED    "\033[01;31m"
-#define GREEN  "\033[01;32m"
-#define YELLOW "\033[01;33m"
-#define BLUE   "\033[01;34m"
-#define PINK   "\033[01;35m"
-#define LBLUE  "\033[01;36m"
-#define WHITE  "\033[01;37m"
-#define OFF    "\033[00m"
-
-
-string Colors::colorize(const char* inStr) {
-#ifdef HAVE_WIN
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD dwMode = 0;
-    GetConsoleMode(hOut, &dwMode);
-    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    SetConsoleMode(hOut, dwMode);
-#endif
-    string str(inStr);
-
-    // _x_  where x lowercase, colorize following word
-    replaceRE(str, "_y_(\\w+)", YELLOW "$1" OFF);
-    replaceRE(str, "_r_(\\w+)", RED "$1" OFF);
-    replaceRE(str, "_g_(\\w+)", GREEN "$1" OFF);
-    replaceRE(str, "_p_(\\w+)", PINK "$1" OFF);
-    replaceRE(str, "_lb_(\\w+)", LBLUE "$1" OFF);
-    replaceRE(str, "_w_(\\w+)", WHITE "$1" OFF);
-
-    // _X_  where X uppercase, colorize until _X_
-    replaceRE(str, "_Y_", YELLOW);
-    replaceRE(str, "_R_", RED);
-    replaceRE(str, "_G_", GREEN);
-    replaceRE(str, "_P_", PINK);
-    replaceRE(str, "_B_", BLUE);
-    replaceRE(str, "_LB_", LBLUE);
-    replaceRE(str, "_W_", WHITE);
-    replaceRE(str, "_X_", OFF);
-    return str;
 }

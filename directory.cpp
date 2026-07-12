@@ -218,21 +218,18 @@ bool Directory_files::begin() {
 //-------------------------------------------------------------------------------------------------
 bool Directory_files::more() {
     if (my_is_more) {
-        errno = 0;
-        my_pDirEnt = readdir(my_pDir);
-        if (my_pDirEnt == nullptr && errno != 0) {
-            int error = errno;
-            std::cerr << my_baseDir <<  " Eror=" << strerror(error) << std::endl;
-        }
-        my_is_more = my_pDirEnt != NULL;
-        if (my_is_more) {
-            if (my_pDirEnt->d_type == DT_DIR) {
-                while (my_is_more &&
-                (my_pDirEnt->d_name[0] == '.' && ! isalnum(my_pDirEnt->d_name[1]))) {
-                    more();
-                }
+        bool isDotDir;
+        do {
+            errno = 0;
+            my_pDirEnt = readdir(my_pDir);
+            if (my_pDirEnt == nullptr && errno != 0) {
+                int error = errno;
+                std::cerr << my_baseDir <<  " Eror=" << strerror(error) << std::endl;
             }
-        }
+            my_is_more = my_pDirEnt != NULL;
+            isDotDir = my_is_more && my_pDirEnt->d_type == DT_DIR &&
+                my_pDirEnt->d_name[0] == '.' && ! isalnum(my_pDirEnt->d_name[1]);
+        } while (isDotDir);   // was recursive (more() calling itself); loop avoids unbounded stack growth
     }
 
     return my_is_more;
@@ -240,16 +237,20 @@ bool Directory_files::more() {
 
 //-------------------------------------------------------------------------------------------------
 bool Directory_files::is_directory() const {
-    return my_pDirEnt->d_type == DT_DIR;
+    return my_pDirEnt != nullptr && my_pDirEnt->d_type == DT_DIR;
 }
 
 //-------------------------------------------------------------------------------------------------
 const char* Directory_files::name() const {
-    return my_pDirEnt->d_name;
+    return (my_pDirEnt != nullptr) ? my_pDirEnt->d_name : nullptr;
 }
 
 //-------------------------------------------------------------------------------------------------
 const lstring& Directory_files::fullName(lstring& fname) const {
+    if (my_pDirEnt == nullptr) {
+        fname.clear();
+        return fname;
+    }
     return DirUtil::join(fname, my_baseDir, my_pDirEnt->d_name);
 }
 #endif

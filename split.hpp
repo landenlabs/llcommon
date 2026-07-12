@@ -44,6 +44,15 @@ class Split : public std::vector<lstring> {
 public:
     typedef size_t(*Find_of)(const lstring& str, const char* delimList, size_t begIdx);
 
+    // Returns the absolute position (matching find_first_of's convention) of the
+    // next delimiter at/after begIdx, or lstring::npos if none remain.
+    static size_t Find(const lstring& str, const char* delimList, size_t begIdx) {
+        if (begIdx >= str.length())
+            return lstring::npos;
+        size_t absPos = begIdx + strcspn(str + begIdx, delimList);
+        return (absPos < str.length()) ? absPos : lstring::npos;
+    }
+
     Split(const lstring& str, const char* delimList, Find_of find_of) {
         size_t lastPos = 0;
         // size_t pos = str.find_first_of(delimList);

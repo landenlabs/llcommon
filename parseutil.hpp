@@ -33,6 +33,7 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "ll_stdhdr.hpp"
+#include "colors.hpp"
 
 #include <regex>
 #include <set>
@@ -41,8 +42,11 @@
 typedef std::vector<std::regex> PatternList;
 
 //-------------------------------------------------------------------------------------------------
+// Note: ignoreCase/unixRegEx/optionErrCnt/patternErrCnt/parseArgSet are plain,
+// unsynchronized state - a single ParseUtil instance is only safe to use from
+// one thread at a time (e.g. parse CLI options up front, before spawning workers).
 class ParseUtil {
-    
+
 public:
     bool ignoreCase = false;
     bool unixRegEx = false;
@@ -100,8 +104,13 @@ public:
             push_back(str.substr(lastPos, pos - lastPos));
     }
 
+    // Returns the absolute position (matching find_first_of's convention) of the
+    // next delimiter at/after begIdx, or lstring::npos if none remain.
     static size_t Find(const lstring& str, const char* delimList, size_t begIdx) {
-        return strcspn(str+begIdx, delimList);
+        if (begIdx >= str.length())
+            return lstring::npos;
+        size_t absPos = begIdx + strcspn(str + begIdx, delimList);
+        return (absPos < str.length()) ? absPos : lstring::npos;
     }
 
     Split(const lstring& str, const char* delimList, int maxSplit = std::numeric_limits<int>::max()) {
@@ -116,31 +125,5 @@ public:
         }
         if (keepEmpty || lastPos < str.length())
             push_back(str.substr(lastPos, (maxSplit == 0) ? str.length() : pos - lastPos));
-    }
-};
-
-//-------------------------------------------------------------------------------------------------
-// Replace using regular expression
-inline string& replaceRE(string& inOut, const char* findRE, const char* replaceWith) {
-    regex pattern(findRE);
-    regex_constants::match_flag_type flags = regex_constants::match_default;
-    inOut = regex_replace(inOut, pattern, replaceWith, flags);
-    return inOut;
-}
-
-
-//-------------------------------------------------------------------------------------------------
-class Colors {
-public:
-    static string colorize(const char* inStr);
-
-    // Requires C++ v17+
-    // Show error in RED
-    template<typename T, typename... Args>
-    static void showError(T first, Args... args) {
-        std::cerr << Colors::colorize("_R_");
-        std::cerr << first;
-        ( ( std::cerr << args << " " ), ... );
-        std::cerr << Colors::colorize("_X_\n");
     }
 };

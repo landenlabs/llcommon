@@ -36,6 +36,13 @@
 
 #include <string>
 #include <regex>
+#include <iostream>
+
+#ifdef HAVE_WIN
+#define byte win_byte_override      // Fix for c++ v17+
+#include <Windows.h>
+#undef byte                         // Fix for c++ v17+
+#endif
 
 using namespace std;
 
@@ -48,18 +55,6 @@ inline string& replaceRE(string& inOut, const char* findRE, const char* replaceW
     return inOut;
 }
 
-class Colors {
-public:
-#ifdef HAVE_WIN
-#define RED    ""
-#define GREEN  ""
-#define YELLOW ""
-#define BLUE   ""
-#define PINK   ""
-#define LBLUE  ""
-#define WHITE  ""
-#define OFF    ""
-#else
 #define RED    "\033[01;31m"
 #define GREEN  "\033[01;32m"
 #define YELLOW "\033[01;33m"
@@ -68,9 +63,21 @@ public:
 #define LBLUE  "\033[01;36m"
 #define WHITE  "\033[01;37m"
 #define OFF    "\033[00m"
-#endif
 
+// This is the single, canonical Colors class for llcommon - do not duplicate it
+// in another header, since two class Colors {...} definitions in headers that
+// might both be included by the same consumer would be a hard redefinition error.
+class Colors {
+public:
     static string colorize(const char* inStr) {
+#ifdef HAVE_WIN
+        // Enable ANSI escape processing on the Windows console so the codes below render.
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD dwMode = 0;
+        GetConsoleMode(hOut, &dwMode);
+        dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(hOut, dwMode);
+#endif
         string str(inStr);
 
         // _x_  where x lowercase, colorize following word
@@ -82,15 +89,25 @@ public:
         replaceRE(str, "_w_(\\w+)",  WHITE "$1" OFF);
 
         // _X_  where X uppercase, colorize until _X_
-        replaceRE(str, "_r_", YELLOW);
+        replaceRE(str, "_Y_", YELLOW);
         replaceRE(str, "_R_", RED);
-        replaceRE(str, "_r_", GREEN);
+        replaceRE(str, "_G_", GREEN);
         replaceRE(str, "_P_", PINK);
         replaceRE(str, "_B_", BLUE);
         replaceRE(str, "_LB_", LBLUE);
         replaceRE(str, "_W_", WHITE);
         replaceRE(str, "_X_", OFF);
         return str;
+    }
+
+    // Requires C++ v17+
+    // Show error in RED
+    template<typename T, typename... Args>
+    static void showError(T first, Args... args) {
+        std::cerr << Colors::colorize("_R_");
+        std::cerr << first;
+        ( ( std::cerr << args << " " ), ... );
+        std::cerr << Colors::colorize("_X_\n");
     }
 };
 
